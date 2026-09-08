@@ -25,14 +25,26 @@ export const idempotencyMiddleware = async (req, res, next) => {
       });
     }
 
-
-    // Attach hook to save final response upon finish 
+    // Attach hook to save final response upon finish
     const originalJson = res.json.bind(res);
     res.json = (body) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            redis.set()
-        }
-    }
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        redis.set(
+          rediskey,
+          JSON.stringify({ status: "COMPLETED", body }),
+          "EX",
+          3600,
+        ); // cache 1 hour
+      } else {
+        redis.del(rediskey); // release lock if required errored
+      }
+      return originalJson(body);
+    };
 
-  } catch (error) {}
+    req.idempotencyKey = idempotencykey;
+    next();
+  } catch (error) {
+    console.error("[Idempotency middleware error]: ", error);
+    next(); // Fail open in case of Redis glitch
+  }
 };
