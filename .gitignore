@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.*
+
+# Guide / Documentation (Excluded as requested)
+STEP_BY_STEP_IMPLEMENTATION_GUIDE.md
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE & Editor Configs
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Runtime / Coverage / Build Output
+coverage/
+dist/
+build/
+.nyc_output/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary and cache directories
+.cache/
+.temp/
+.tmp/
