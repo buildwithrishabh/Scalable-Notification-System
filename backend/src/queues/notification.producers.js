@@ -44,5 +44,6 @@ export const dispatchToQueue = async ({
     jobOptions,
   );
 
-  return job;
+  return job.id;
 };
+
