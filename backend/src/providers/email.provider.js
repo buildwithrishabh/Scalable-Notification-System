@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { logger } from "../observability/logger.js";
 
 dotenv.config();
 
@@ -55,15 +56,17 @@ export const sendEmail = async ({ to, toName, subject, html, text }) => {
       data?.message ||
       data?.code ||
       `Brevo request failed with HTTP status ${response.status}`;
-    console.error(
-      `[Brevo Provider] Failed to send email to ${to}:`,
+    logger.error(`[Brevo Provider] Failed to send email to ${to}:`, {
       errorMessage,
-    );
+      status: response.status,
+      to,
+    });
     throw new Error(`[Brevo Provider] ${errorMessage}`);
   }
 
-  console.log(
-    `[Brevo Provider] Email sent successfully to ${to} (Message ID: ${data.messageId})`,
+  logger.info(
+    `[Brevo Provider] Email sent successfully to ${to}`,
+    { messageId: data.messageId, to, subject },
   );
 
   return {

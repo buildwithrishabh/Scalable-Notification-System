@@ -1,5 +1,6 @@
 import Redis from "ioredis";
 import dotenv from "dotenv";
+import { logger } from "../observability/logger.js";
 dotenv.config();
 
 export const redisConfig = {
@@ -15,7 +16,7 @@ export const redis = new Redis(redisConfig);
 export const redisPublisher = new Redis(redisConfig);
 export const redisSubscriber = new Redis(redisConfig);
 
-redis.on("connect", () => console.log("[Redis] connected successfully"));
-redis.on("error", (err) => console.error("[Redis Error]:", err));
-redisPublisher.on("error", (err) => console.error("[Redis Publisher Error]:", err));
-redisSubscriber.on("error", (err) => console.error("[Redis Subscriber Error]:", err));
+redis.on("connect", () => logger.info("[Redis] connected successfully"));
+redis.on("error", (err) => logger.error("[Redis Error]:", { err }));
+redisPublisher.on("error", (err) => logger.error("[Redis Publisher Error]:", { err }));
+redisSubscriber.on("error", (err) => logger.error("[Redis Subscriber Error]:", { err }));

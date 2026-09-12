@@ -1,5 +1,6 @@
 import pg from "pg";
 import dotenv from "dotenv";
+import { logger } from "../observability/logger.js";
 dotenv.config();
 
 const { Pool } = pg;
@@ -16,5 +17,5 @@ export const db = new Pool({
 });
 
 db.on("error", (err) => {
-  console.error("[Postgres Pool Error ]:", err);
+  logger.error("[Postgres Pool Error]:", { err });
 });

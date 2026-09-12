@@ -1,4 +1,5 @@
 import { redis } from "../config/redis.js";
+import { logger } from "../observability/logger.js";
 
 export const idempotencyMiddleware = async (req, res, next) => {
   const idempotencykey = req.headers["idempotency-key"];
@@ -19,6 +20,7 @@ export const idempotencyMiddleware = async (req, res, next) => {
 
     if (!acquired) {
       const existing = await redis.get(rediskey);
+      logger.warn("Duplicate request detected via idempotency key", { idempotencykey });
       return res.status(409).json({
         error: "Duplicate request detected",
         details: existing ? JSON.parse(existing) : "In-flight operation",
@@ -44,7 +46,7 @@ export const idempotencyMiddleware = async (req, res, next) => {
     req.idempotencyKey = idempotencykey;
     next();
   } catch (error) {
-    console.error("[Idempotency middleware error]: ", error);
+    logger.error("[Idempotency middleware error]:", { error, idempotencykey });
     next(); // Fail open in case of Redis glitch
   }
 };

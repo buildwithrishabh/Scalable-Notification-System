@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import { QUEUES } from "../queues/queue.constants.js";
 import { redisConfig, redisPublisher } from "../config/redis.js";
 import { db } from "../config/database.js";
+import { logger } from "../observability/logger.js";
 
 export const startInAppWorker = () => {
   return new Worker(QUEUES.IN_APP, async (job) => {
@@ -24,8 +25,12 @@ export const startInAppWorker = () => {
     };
 
     await redisPublisher.publish(`user:notifications:${userId}` , JSON.stringify(eventPayload));
-    console.log(`[InAppWorker] Notification sent to user ${userId} via Redis Pub/Sub`);
+    logger.info(`[InAppWorker] Notification sent to user ${userId} via Redis Pub/Sub`, {
+      deliveryId,
+      userId,
+    });
   } , {
     connection: redisConfig , concurrency: 25
   });
 };
+

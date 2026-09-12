@@ -1,7 +1,9 @@
 import pg from "pg";
 import dotenv from "dotenv";
+import { logger } from "../observability/logger.js";
 
 dotenv.config();
+
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -98,14 +100,15 @@ const migrationQuery = `
 
 async function runMigration() {
     try {
-        console.log("[Migration] Starting PostgreSQL schema migration...")
+        logger.info("[Migration] Starting PostgreSQL schema migration...");
         await pool.query(migrationQuery);
-        console.log('[Migration] All tables and indexes created successfully!');
+        logger.info('[Migration] All tables and indexes created successfully!');
         process.exit(0);
     } catch (error){
-        console.error('[Migration] failed:' , error)
+        logger.error('[Migration] failed:', { error: error.message || error });
         process.exit(1);
     }
 }
+
 
 runMigration();

@@ -1,4 +1,5 @@
 import { queueMap } from "./queue.registry.js";
+import { logger } from "../observability/logger.js";
 
 export const dispatchToQueue = async ({
   channel,
@@ -44,6 +45,15 @@ export const dispatchToQueue = async ({
     jobOptions,
   );
 
+  logger.info(`[QueueProducer] Job queued for channel ${channel}`, {
+    jobId: job.id,
+    channel,
+    deliveryId,
+    notificationId,
+    scheduled: !!scheduledAt,
+  });
+
   return job.id;
 };
+
 

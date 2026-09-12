@@ -3,14 +3,16 @@ import { QUEUES } from "../queues/queue.constants.js";
 import { redisConfig } from "../config/redis.js";
 import { db } from "../config/database.js";
 import { sendEmail } from "../providers/email.provider.js";
+import { logger } from "../observability/logger.js";
 
 export const startEmailWorker = () => {
   const worker = new Worker(
     QUEUES.EMAIL,
     async (job) => {
       const { deliveryId, payload } = job.data;
-      console.log(
+      logger.info(
         `[EmailWorker] Processing job ${job.id} for delivery ${deliveryId} (Attempt: ${job.attemptsMade + 1})`,
+        { jobId: job.id, deliveryId, attempt: job.attemptsMade + 1 },
       );
 
       try {
@@ -29,7 +31,11 @@ export const startEmailWorker = () => {
           [response.messageId, deliveryId],
         );
       } catch (error) {
-        console.error(`[EmailWorker] Job ${job.id} failed: ${error.message}`);
+        logger.error(`[EmailWorker] Job ${job.id} failed: ${error.message}`, {
+          jobId: job.id,
+          deliveryId,
+          error: error.message,
+        });
 
         // Record last error and attempts in DB
         await db.query(
@@ -51,7 +57,11 @@ export const startEmailWorker = () => {
   // dlq handler: triggered when all 3 attempts fail
   worker.on('failed', async (job, err) => {
     if (job.attemptsMade >= (job.opts.attempts || 3)) {
-      console.error(`[EmailWorker][DLQ] Job ${job.id} permanently failed. Moving to DLQ.`);
+      logger.error(`[EmailWorker][DLQ] Job ${job.id} permanently failed. Moving to DLQ.`, {
+        jobId: job.id,
+        deliveryId: job.data?.deliveryId,
+        error: err.message,
+      });
 
       const { deliveryId, payload } = job.data;
       await db.query(
@@ -66,8 +76,12 @@ export const startEmailWorker = () => {
         [deliveryId, JSON.stringify(payload), err.message],
       );
 
-      console.log(`[EmailWorker][DLQ] Job ${job.id} moved to DLQ`);
+      logger.info(`[EmailWorker][DLQ] Job ${job.id} moved to DLQ`, {
+        jobId: job.id,
+        deliveryId,
+      });
     }
   });
   return worker;
 };
+

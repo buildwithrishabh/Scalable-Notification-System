@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { redisSubscriber } from "../config/redis.js";
+import { logger } from "../observability/logger.js";
 
 export const initializeWebSocket = (httpServer) => {
   const io = new Server(httpServer, {
@@ -24,22 +25,22 @@ export const initializeWebSocket = (httpServer) => {
   // 2. Handle Client Connections
   io.on("connection", (socket) => {
     const userId = socket.user.id;
-    console.log(`[WebSocket] User connected: ${userId} (Socket ID: ${socket.id})`);
+    logger.info(`[WebSocket] User connected: ${userId}`, { socketId: socket.id, userId });
 
     // Join a private room for this user
     socket.join(`room:user:${userId}`);
 
     socket.on("disconnect", () => {
-      console.log(`[WebSocket] User disconnected: ${userId}`);
+      logger.info(`[WebSocket] User disconnected: ${userId}`, { socketId: socket.id, userId });
     });
   });
 
   // 3. Redis Pub/Sub: Placed OUTSIDE io.on("connection") to avoid duplicate listeners & memory leaks
   redisSubscriber.psubscribe("user:notifications:*", (err) => {
     if (err) {
-      console.error("[Redis PubSub] Subscription error:", err);
+      logger.error("[Redis PubSub] Subscription error:", { error: err.message || err });
     } else {
-      console.log("[Redis PubSub] Subscribed to user:notifications:*");
+      logger.info("[Redis PubSub] Subscribed to user:notifications:*");
     }
   });
 
@@ -50,11 +51,11 @@ export const initializeWebSocket = (httpServer) => {
 
       // Broadcast only to that specific user's room
       io.to(`room:user:${userId}`).emit("new_notification", data);
-      console.log(`[WebSocket] Emitted "new_notification" to room:user:${userId}`);
+      logger.debug(`[WebSocket] Emitted "new_notification" to room:user:${userId}`, { userId });
     } catch (err) {
-      console.error("[WebSocket] Failed to process Redis message:", err.message);
+      logger.error("[WebSocket] Failed to process Redis message:", { error: err.message });
     }
   });
 
   return io;
-};
+};
