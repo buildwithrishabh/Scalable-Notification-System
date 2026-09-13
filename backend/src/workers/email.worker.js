@@ -10,15 +10,29 @@ export const startEmailWorker = () => {
   const worker = new Worker(
     QUEUES.EMAIL,
     async (job) => {
-      const { deliveryId, payload } = job.data;
+      const { deliveryId, payload, userId } = job.data;
       logger.info(
         `[EmailWorker] Processing job ${job.id} for delivery ${deliveryId} (Attempt: ${job.attemptsMade + 1})`,
         { jobId: job.id, deliveryId, attempt: job.attemptsMade + 1 },
       );
 
+      let toEmail = payload.to;
+
       try {
+        if (!toEmail && userId) {
+          const userResult = await db.query(
+            `select email from users where id = $1`,
+            [userId],
+          );
+
+          toEmail = userResult.rows[0]?.email;
+
+          if (!toEmail) {
+            throw new Error(`No email address found for user ${userId}`);
+          }
+        }
         const response = await sendEmail({
-          to: payload.to,
+          to: toEmail,
           subject: payload.subject,
           html: payload.html || payload.body,
           text: payload.body || payload.text,
@@ -61,13 +75,16 @@ export const startEmailWorker = () => {
   );
 
   // dlq handler: triggered when all 3 attempts fail
-  worker.on('failed', async (job, err) => {
+  worker.on("failed", async (job, err) => {
     if (job.attemptsMade >= (job.opts.attempts || 3)) {
-      logger.error(`[EmailWorker][DLQ] Job ${job.id} permanently failed. Moving to DLQ.`, {
-        jobId: job.id,
-        deliveryId: job.data?.deliveryId,
-        error: err.message,
-      });
+      logger.error(
+        `[EmailWorker][DLQ] Job ${job.id} permanently failed. Moving to DLQ.`,
+        {
+          jobId: job.id,
+          deliveryId: job.data?.deliveryId,
+          error: err.message,
+        },
+      );
 
       const { deliveryId, payload } = job.data;
       await db.query(
@@ -95,4 +112,3 @@ export const startEmailWorker = () => {
   });
   return worker;
 };
-
