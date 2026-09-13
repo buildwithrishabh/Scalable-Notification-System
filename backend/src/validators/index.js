@@ -30,6 +30,7 @@ export const updatePreferencesSchema = Joi.object({
 export const registerUserSchema = Joi.object({
   name: Joi.string().trim().min(2).max(100).required(),
   email: Joi.string().email().lowercase().trim().required(),
+  phone: Joi.string().max(20).optional().allow(null, ""),
   password: Joi.string().min(6).max(128).required(),
 });
 

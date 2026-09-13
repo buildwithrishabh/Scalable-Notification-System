@@ -10,15 +10,30 @@ export const startSmsWorker = () => {
   const worker = new Worker(
     QUEUES.SMS,
     async (job) => {
-      const { deliveryId, payload } = job.data;
+      const { deliveryId, payload , userId } = job.data;
       logger.info(
         `[SmsWorker] Processing job ${job.id} for delivery ${deliveryId} (Attempt: ${job.attemptsMade + 1})`,
         { jobId: job.id, deliveryId, attempt: job.attemptsMade + 1 },
       );
 
       try {
+        let toPhone = payload.to;
+
+        // agar payload me phone number nahi hai to database se user ka phone fetch karo
+        if (!toPhone && userId) {
+          const userResult = await db.query(
+            `select phone from users where id = $1`, [userId],
+          );
+          toPhone = userResult.rows[0]?.phone;
+
+          // agar ab bhi phone number nahi hai to error throw karo
+          if (!toPhone) {
+            throw new Error("Phone number not found for user");
+          }
+        }
+
         const response = await sendSms({
-          to: payload.to,
+          to: toPhone,
           text: payload.body || payload.text,
         });
 

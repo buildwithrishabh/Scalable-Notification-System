@@ -39,8 +39,9 @@ export const generateRefreshToken = (user) => {
 /**
  * Register a new user and seed default notification preferences
  */
-export const registerUser = async ({ name, email, password }) => {
+export const registerUser = async ({ name, email, phone, password }) => {
   const normalizedEmail = email.toLowerCase().trim();
+  const formattedPhone = phone ? phone.trim() : null;
 
   // Check if user already exists
   const existingUser = await db.query(
@@ -64,14 +65,15 @@ export const registerUser = async ({ name, email, password }) => {
     await client.query("BEGIN");
 
     const insertUserQuery = `
-      INSERT INTO users (name, email, password_hash)
-      VALUES ($1, $2, $3)
-      RETURNING id, name, email, created_at;
+      INSERT INTO users (name, email, phone, password_hash)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, name, email, phone, created_at;
     `;
 
     const userResult = await client.query(insertUserQuery, [
       name.trim(),
       normalizedEmail,
+      formattedPhone,
       passwordHash,
     ]);
 
@@ -97,6 +99,7 @@ export const registerUser = async ({ name, email, password }) => {
         id: newUser.id,
         name: newUser.name,
         email: newUser.email,
+        phone: newUser.phone,
         created_at: newUser.created_at,
       },
       accessToken,
@@ -117,7 +120,7 @@ export const loginUser = async ({ email, password }) => {
   const normalizedEmail = email.toLowerCase().trim();
 
   const result = await db.query(
-    "SELECT id, name, email, password_hash, created_at FROM users WHERE email = $1",
+    "SELECT id, name, email, phone, password_hash, created_at FROM users WHERE email = $1",
     [normalizedEmail],
   );
 
@@ -147,6 +150,7 @@ export const loginUser = async ({ email, password }) => {
       id: user.id,
       name: user.name,
       email: user.email,
+      phone: user.phone,
       created_at: user.created_at,
     },
     accessToken,
@@ -172,7 +176,7 @@ export const refreshAccessToken = async (refreshToken) => {
     const decoded = jwt.verify(refreshToken, secret);
 
     const result = await db.query(
-      "SELECT id, name, email FROM users WHERE id = $1",
+      "SELECT id, name, email, phone FROM users WHERE id = $1",
       [decoded.id],
     );
 
@@ -201,7 +205,7 @@ export const refreshAccessToken = async (refreshToken) => {
  */
 export const getUserProfile = async (userId) => {
   const result = await db.query(
-    "SELECT id, name, email, created_at, updated_at FROM users WHERE id = $1",
+    "SELECT id, name, email, phone, created_at, updated_at FROM users WHERE id = $1",
     [userId],
   );
 

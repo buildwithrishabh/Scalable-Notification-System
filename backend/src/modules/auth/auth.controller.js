@@ -13,10 +13,11 @@ const setRefreshTokenCookie = (res, token) => {
 
 export const registerHandler = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, phone, password } = req.body;
     const { user, accessToken, refreshToken } = await authService.registerUser({
       name,
       email,
+      phone,
       password,
     });
 
