@@ -26,7 +26,7 @@ export const listUserNotifications = async (req, res, next) => {
 };
 
 // GET /api/notifications/unread-count
-export const getUnreadCount = async (req, res, next) => {
+export const getUnreadCounts = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const query = `
@@ -41,50 +41,79 @@ export const getUnreadCount = async (req, res, next) => {
     next(error);
   }
 };
-// Backward compatibility alias
-export const getUnreadCounts = getUnreadCount;
+
+export const getUnreadCount = getUnreadCounts;
 
 // PUT /api/notifications/:id/read
 export const markAsRead = async (req, res, next) => {
   try {
+    const userId = req.user.id;
     const { id } = req.params;
-    await db.query(
-      `UPDATE notification_deliveries 
+
+    const result = await db.query(
+      `UPDATE notification_deliveries nd
        SET read_at = NOW()
-       WHERE id = $1 AND channel = 'IN_APP'`,
-      [id]
+       FROM notifications n
+       WHERE (nd.id = $1 OR nd.notification_id = $1)
+         AND nd.notification_id = n.id
+         AND n.user_id = $2
+         AND nd.channel = 'IN_APP'
+       RETURNING nd.id, nd.notification_id, nd.read_at`,
+      [id, userId]
     );
 
-    res.json({ success: true, message: "Notification marked as read" });
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        error: "Notification delivery not found or not owned by user",
+      });
+    }
+
+    res.json({ success: true, message: "Notification marked as read", data: result.rows[0] });
   } catch (error) {
     next(error);
   }
 };
 
-// GET /api/admin/dead-notifications (view dlq)
-export const getDeadLetters = async (req, res, next) => {
+// GET /api/notifications/dead-letters (view user's own failed dlq items)
+export const getDeadLetter = async (req, res, next) => {
   try {
-    const result = await db.query(
-      `SELECT * FROM dead_letter_notifications WHERE resolved = false ORDER BY created_at DESC LIMIT 50`
-    );
+    const userId = req.user.id;
+    const query = `
+      SELECT dln.id, dln.delivery_id, dln.channel, dln.payload, dln.failure_reason, dln.created_at, dln.resolved
+      FROM dead_letter_notifications dln
+      JOIN notification_deliveries nd ON dln.delivery_id = nd.id
+      JOIN notifications n ON nd.notification_id = n.id
+      WHERE n.user_id = $1 AND dln.resolved = false
+      ORDER BY dln.created_at DESC
+      LIMIT 50;
+    `;
+    const result = await db.query(query, [userId]);
     res.json({ deadLetters: result.rows });
   } catch (error) {
     next(error);
   }
 };
-// Backward compatibility alias
-export const getDeadLetter = getDeadLetters;
 
-// POST /api/admin/retry/:id (Retry DLQ Job)
+// POST /api/notifications/retry/:id (Retry User's Own DLQ Job)
 export const retryDeadLetter = async (req, res, next) => {
   try {
+    const userId = req.user.id;
     const { id } = req.params;
-    const result = await db.query(
-      `SELECT * FROM dead_letter_notifications WHERE id = $1`,
-      [id]
-    );
-    if (result.rows.length === 0)
-      return res.status(404).json({ error: "DLQ record not found" });
+
+    const query = `
+      SELECT dln.*, nd.notification_id
+      FROM dead_letter_notifications dln
+      JOIN notification_deliveries nd ON dln.delivery_id = nd.id
+      JOIN notifications n ON nd.notification_id = n.id
+      WHERE dln.id = $1 AND n.user_id = $2;
+    `;
+    const result = await db.query(query, [id, userId]);
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "Failed notification record not found" });
+    }
 
     const dlqItem = result.rows[0];
 
@@ -92,17 +121,30 @@ export const retryDeadLetter = async (req, res, next) => {
     await dispatchToQueue({
       channel: dlqItem.channel,
       deliveryId: dlqItem.delivery_id,
+      notificationId: dlqItem.notification_id,
+      userId,
       payload: dlqItem.payload,
     });
 
+    // Mark DLQ entry as resolved
     await db.query(
       `UPDATE dead_letter_notifications SET resolved = true WHERE id = $1`,
-      [id]
+      [id],
     );
-    logger.info(`[DLQ] Dead letter job retried successfully`, { dlqId: id, channel: dlqItem.channel });
-    res.json({ message: "Job re-queued successfully from DLQ." });
-  } catch (err) {
 
+    // Reset delivery status to PENDING
+    await db.query(
+      `UPDATE notification_deliveries SET status = 'PENDING', last_error = NULL WHERE id = $1`,
+      [dlqItem.delivery_id],
+    );
+
+    logger.info(`[DLQ] User ${userId} retried failed job ${id}`, {
+      dlqId: id,
+      channel: dlqItem.channel,
+    });
+
+    res.json({ success: true, message: "Notification re-queued successfully." });
+  } catch (err) {
     next(err);
   }
 };

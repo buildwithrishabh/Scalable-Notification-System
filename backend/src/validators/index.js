@@ -6,6 +6,7 @@ export const createNotificationSchema = Joi.object({
   type: Joi.string().max(50).required(),
   title: Joi.string().max(255).required(),
   body: Joi.string().required(),
+  recipient: Joi.string().optional().allow(null, ""),
   channels: Joi.array().items(Joi.string().valid('EMAIL', 'SMS', 'PUSH', 'IN_APP')).min(1).required(),
   data: Joi.object().optional().default({}),
   priority: Joi.string().valid('LOW', 'NORMAL', 'HIGH', 'CRITICAL').default('NORMAL'),

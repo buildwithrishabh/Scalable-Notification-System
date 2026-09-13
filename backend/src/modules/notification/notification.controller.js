@@ -104,6 +104,7 @@ export const createNotificationHandler = async (req, res, next) => {
           subject: title,
           body,
           title,
+          type,
           data,
         },
         scheduledAt,

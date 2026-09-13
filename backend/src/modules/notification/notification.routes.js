@@ -4,6 +4,8 @@ import {
   listUserNotifications,
   getUnreadCount,
   markAsRead,
+  getDeadLetter,
+  retryDeadLetter,
 } from "./notification.queries.js";
 import { slidingWindowRateLimiter } from "../../middlewares/rateLimiter.middleware.js";
 import { idempotencyMiddleware } from "../../middlewares/idempotency.middleware.js";
@@ -13,7 +15,7 @@ import { createNotificationSchema } from "../../validators/index.js";
 
 const router = Router();
 
-// POST /api/notifications - Ingest notification (Async Decoupled, returns 202)
+// Send / Enqueue notification (returns 202 Accepted)
 router.post(
   "/",
   slidingWindowRateLimiter({ windowSeconds: 60, maxRequests: 100 }),
@@ -22,13 +24,19 @@ router.post(
   createNotificationHandler,
 );
 
-// GET /api/notifications - List authenticated user's notifications
+// Get user notifications
 router.get("/", authenticate, listUserNotifications);
 
-// GET /api/notifications/unread-count - Get total unread in-app notifications
+// Get unread count
 router.get("/unread-count", authenticate, getUnreadCount);
 
-// PUT /api/notifications/:id/read - Mark an in-app notification delivery as read
+// Mark notification as read
 router.put("/:id/read", authenticate, markAsRead);
+
+// View user's failed notifications (DLQ)
+router.get("/dead-letters", authenticate, getDeadLetter);
+
+// Retry failed notification
+router.post("/retry/:id", authenticate, retryDeadLetter);
 
 export default router;
