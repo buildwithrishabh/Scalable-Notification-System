@@ -1,4 +1,4 @@
-import Joi from 'joi';
+import Joi from "joi";
 
 // 1. Create Notification Schema
 export const createNotificationSchema = Joi.object({
@@ -7,9 +7,14 @@ export const createNotificationSchema = Joi.object({
   title: Joi.string().max(255).required(),
   body: Joi.string().required(),
   recipient: Joi.string().optional().allow(null, ""),
-  channels: Joi.array().items(Joi.string().valid('EMAIL', 'SMS', 'PUSH', 'IN_APP')).min(1).required(),
+  channels: Joi.array()
+    .items(Joi.string().valid("EMAIL", "SMS", "PUSH", "IN_APP"))
+    .min(1)
+    .required(),
   data: Joi.object().optional().default({}),
-  priority: Joi.string().valid('LOW', 'NORMAL', 'HIGH', 'CRITICAL').default('NORMAL'),
+  priority: Joi.string()
+    .valid("LOW", "NORMAL", "HIGH", "CRITICAL")
+    .default("NORMAL"),
   scheduledAt: Joi.date().iso().optional().allow(null),
 });
 
@@ -23,17 +28,17 @@ export const updatePreferencesSchema = Joi.object({
 
 // 3. User Authentication Schemas
 export const registerUserSchema = Joi.object({
-  name: Joi.string().min(2).max(100).required(),
-  email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
-  role: Joi.string().valid('USER', 'ADMIN').default('USER'),
+  name: Joi.string().trim().min(2).max(100).required(),
+  email: Joi.string().email().lowercase().trim().required(),
+  password: Joi.string().min(6).max(128).required(),
 });
 
 export const loginUserSchema = Joi.object({
-  email: Joi.string().email().required(),
+  email: Joi.string().email().lowercase().trim().required(),
   password: Joi.string().required(),
 });
 
+// 4. Device Registration Schema
 export const registerDeviceSchema = Joi.object({
   device_token: Joi.string().required(),
   device_type: Joi.string().valid("WEB", "ANDROID", "IOS").default("WEB"),
