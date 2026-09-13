@@ -100,7 +100,7 @@ export const createNotificationHandler = async (req, res, next) => {
         notificationId,
         userId,
         payload: {
-          to: req.body.recipient || "user@example.com",
+          to: req.body.recipient,
           subject: title,
           body,
           title,
