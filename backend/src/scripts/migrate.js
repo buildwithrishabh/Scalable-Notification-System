@@ -95,6 +95,20 @@ const migrationQuery = `
       resolved BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    -- 7. user_devices table (for FCM Push Notifications)
+    CREATE TABLE IF NOT EXISTS user_devices (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      device_token TEXT NOT NULL UNIQUE,
+      device_type VARCHAR(20) DEFAULT 'WEB',
+      is_active BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_devices_active ON user_devices(user_id, is_active);
 `;
 
 

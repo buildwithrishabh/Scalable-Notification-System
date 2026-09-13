@@ -3,6 +3,7 @@ import { QUEUES } from "../queues/queue.constants.js";
 import { redisConfig, redisPublisher } from "../config/redis.js";
 import { db } from "../config/database.js";
 import { logger } from "../observability/logger.js";
+import { notificationsDeliveredCounter } from "../observability/metrics.js";
 
 export const startInAppWorker = () => {
   return new Worker(QUEUES.IN_APP, async (job) => {
@@ -25,6 +26,12 @@ export const startInAppWorker = () => {
     };
 
     await redisPublisher.publish(`user:notifications:${userId}` , JSON.stringify(eventPayload));
+    
+    notificationsDeliveredCounter.inc({
+      channel: "IN_APP",
+      status: "SUCCESS",
+    });
+
     logger.info(`[InAppWorker] Notification sent to user ${userId} via Redis Pub/Sub`, {
       deliveryId,
       userId,

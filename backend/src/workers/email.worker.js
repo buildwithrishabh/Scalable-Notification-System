@@ -4,6 +4,7 @@ import { redisConfig } from "../config/redis.js";
 import { db } from "../config/database.js";
 import { sendEmail } from "../providers/email.provider.js";
 import { logger } from "../observability/logger.js";
+import { notificationsDeliveredCounter } from "../observability/metrics.js";
 
 export const startEmailWorker = () => {
   const worker = new Worker(
@@ -30,6 +31,11 @@ export const startEmailWorker = () => {
            WHERE id = $2`,
           [response.messageId, deliveryId],
         );
+
+        notificationsDeliveredCounter.inc({
+          channel: "EMAIL",
+          status: "SUCCESS",
+        });
       } catch (error) {
         logger.error(`[EmailWorker] Job ${job.id} failed: ${error.message}`, {
           jobId: job.id,
@@ -75,6 +81,11 @@ export const startEmailWorker = () => {
          VALUES ($1, 'EMAIL', $2, $3)`,
         [deliveryId, JSON.stringify(payload), err.message],
       );
+
+      notificationsDeliveredCounter.inc({
+        channel: "EMAIL",
+        status: "FAILED",
+      });
 
       logger.info(`[EmailWorker][DLQ] Job ${job.id} moved to DLQ`, {
         jobId: job.id,

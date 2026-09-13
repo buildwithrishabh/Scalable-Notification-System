@@ -32,3 +32,8 @@ export const loginUserSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
 });
+
+export const registerDeviceSchema = Joi.object({
+  device_token: Joi.string().required(),
+  device_type: Joi.string().valid("WEB", "ANDROID", "IOS").default("WEB"),
+});
